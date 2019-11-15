@@ -36,13 +36,14 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.fontbox.ttf.TrueTypeFont;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.*;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.shading.PDShadingType3;
@@ -2379,10 +2380,22 @@ public class PDFRenderer implements BoxRenderer
      */
     private PDFont setFont(String fontFamily, boolean isItalic, boolean isBold)
     {
-        PDFont font = loadTTF(fontFamily, isItalic, isBold);
-        // try some fallbacks when not found
-        if (font == null) font = tryTTFFallback(fontFamily, isItalic, isBold);
-        if (font == null) font = tryBuiltinFallback(fontFamily, isItalic, isBold);
+        COSDictionary dictionary = new COSDictionary();
+        dictionary.setItem( COSName.TYPE, COSName.FONT_DESC );
+        PDFontDescriptor desc = new PDFontDescriptor(dictionary);
+        desc.setItalic(isItalic);
+        desc.setFontWeight(isBold? 700: 400);
+        desc.setFontFamily(fontFamily);
+        FontMapping<TrueTypeFont> trueTypeFont = FontMappers.instance().getTrueTypeFont(fontFamily, desc);
+
+        PDFont font = null;
+        if (trueTypeFont != null) {
+            try {
+                font = PDType0Font.load(doc, trueTypeFont.getFont(), true);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
         return font;
     }
 
